@@ -1,6 +1,7 @@
 # AtoM Portable + Asistente IA
 
 **Access to Memory (AtoM) 2.10.0** con **Asistente IA archivístico** integrado, para instalación local en Windows usando Docker.
+**Estado:** En desarrollo / Beta. Probado en Windows 10/11 con Docker Desktop.
 
 ---
 
