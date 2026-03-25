@@ -59,6 +59,16 @@ Ejecute siempre `3_detener_atom.bat` para evitar corrupción de datos.
 
 > ⚠️ **Cambie la contraseña** tras el primer acceso: menú superior derecho → *Admin → Mi perfil*.
 
+## Credenciales por defecto
+
+| Campo | Valor |
+|---|---|
+| Usuario | `admin@atom.local` |
+| Contraseña | `Admin2024!` |
+
+> ⚠️ **Cambie la contraseña** tras el primer acceso: menú superior derecho → *Admin → Mi perfil*.
+
+> 🔧 **Nota para desarrolladores:** El archivo `.env` está incluido intencionalmente en el repositorio con valores por defecto para facilitar la instalación sin configuración previa. Si adapta este paquete para otro entorno, añada `.env` a su `.gitignore` y use `.env.example` como plantilla, siguiendo las convenciones estándar de seguridad.
 ---
 
 ## Asistente IA
