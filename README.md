@@ -29,8 +29,9 @@
 ### Paso 1 — Primera vez (requiere internet)
 
 1. Instale **Docker Desktop** y ábralo. Espere a que el icono de la ballena esté quieto.
-2. Descomprima este paquete en la ubicación deseada (cualquier unidad: `C:\AtomPortable`, `D:\AtomPortable`, `E:\AtomPortable`...).
-3. Ejecute `1_preparar_atom.bat`.
+2. Descomprima este paquete en la unidad **C:** (por ejemplo `C:\AtomPortable`).
+3. Copie `.env.example` como `.env` y configure sus contraseñas.
+4. Ejecute `1_preparar_atom.bat`.
    - Descarga el código fuente de AtoM desde GitHub (~60 MB)
    - Construye la imagen Docker (~10-20 min)
    - Descarga y guarda todas las imágenes para uso offline
@@ -50,64 +51,61 @@ Ejecute siempre `3_detener_atom.bat` para evitar corrupción de datos.
 
 ---
 
-
-## Credenciales por defecto
+## Credenciales
 
 | Campo | Valor |
 |---|---|
-| Usuario | `admin@atom.local` |
-| Contraseña | `Admin2024!` |
+| Usuario | `admin` |
+| Contraseña | La que configure en el fichero `.env` (campo `ATOM_ADMIN_PASSWORD`) |
 
-> ⚠️ **Cambie la contraseña** tras el primer acceso: menú superior derecho → *Admin → Mi perfil*.
-
-> 🔧 **Nota para desarrolladores:** El archivo `.env` está incluido intencionalmente en el repositorio con valores por defecto para facilitar la instalación sin configuración previa. Si adapta este paquete para otro entorno, añada `.env` a su `.gitignore` y use `.env.example` como plantilla, siguiendo las convenciones estándar de seguridad.
 ---
 
 ## Asistente IA
- 
+
 El asistente (`http://localhost:8081`) requiere **Ollama** instalado en el equipo con al menos un modelo descargado. Ningún dato sale del equipo.
- 
+
 ### Modelo recomendado
- 
+
 El modelo recomendado es **`gpt-oss:20b`** (Microsoft Phi-4 de 20B parámetros), que ofrece el mejor equilibrio entre calidad de respuesta y rendimiento en tareas archivísticas en español:
- 
+
 ```bash
 ollama pull gpt-oss:20b
 ```
- 
+
 Otros modelos compatibles:
- 
+
 | Modelo | Tamaño | Calidad | RAM mínima |
 |---|---|---|---|
 | `gpt-oss:20b` | ~13 GB | ⭐⭐⭐⭐⭐ Recomendado | 16 GB |
 | `llama3.2` | ~2 GB | ⭐⭐⭐ Bueno | 8 GB |
 | `mistral` | ~4 GB | ⭐⭐⭐⭐ Muy bueno | 8 GB |
 | `llama3.1:8b` | ~5 GB | ⭐⭐⭐⭐ Muy bueno | 8 GB |
- 
+
 ### Tips para obtener mejores resultados
- 
+
 **📋 Para ISAD(G):**
 - Cuanto más texto descriptivo incluya, mejores serán las sugerencias. Un párrafo mínimo.
 - Incluya información sobre el productor, las fechas y el contenido del fondo o serie.
 - Si el resultado no es satisfactorio, añada más contexto y vuelva a generar.
 - Los campos que el modelo no puede inferir del texto los omite — es el comportamiento correcto.
- 
+
 **🏷️ Para Metadatos:**
 - Pegue el texto completo del documento, no solo el encabezado.
 - Para documentos administrativos (actas, informes, circulares) funciona especialmente bien.
 - Las palabras clave generadas pueden usarse directamente como puntos de acceso en AtoM.
- 
+
 **⚡ Rendimiento:**
 - La primera consulta tarda más porque el modelo se carga en memoria (~30 seg con `gpt-oss:20b`).
 - Las consultas siguientes son más rápidas mientras Ollama permanezca activo.
 - Si el equipo tiene GPU compatible, Ollama la usará automáticamente para acelerar las respuestas.
 - Con `gpt-oss:20b` se recomienda cerrar otras aplicaciones pesadas durante el uso.
- 
+
 **🔄 Si la respuesta no es correcta:**
 - Reformule el texto de entrada con más detalle.
 - Cambie a un modelo más potente si dispone de más RAM.
 - El botón **Generar sugerencias** puede pulsarse varias veces — cada respuesta puede variar ligeramente.
- 
+
+---
 
 ## Estructura de archivos
 
@@ -117,15 +115,13 @@ AtomPortable/
 ├── 2_iniciar_atom.bat       ← Uso diario
 ├── 3_detener_atom.bat       ← Antes de apagar
 ├── docker-compose.yml
-├── .env
+├── .env                     ← Creado por el usuario (no en el repo)
+├── .env.example             ← Plantilla de configuración
 ├── INSTRUCCIONES.html
-├── README.md
 ├── config/
-│   ├── nginx.conf
-│   └── mysqld.cnf
+│   └── nginx.conf
 ├── asistente-ia/
-│   └── index.html           ← Interfaz del Asistente IA
-├── datos/                   ← Base de datos (persistente)
+│   └── index.html
 ├── uploads/                 ← Archivos subidos a AtoM
 └── images/                  ← Imágenes Docker para uso offline
 ```
@@ -146,5 +142,5 @@ AtomPortable/
 ## Notas
 
 - Esta instalación es para **uso local / pruebas**. Para producción consulte la [documentación oficial de AtoM](https://www.accesstomemory.org/docs/latest/).
-- Los datos se almacenan en las carpetas `datos/` y `uploads/`. Haga copias de seguridad periódicas.
+- Los datos se almacenan en las carpetas `uploads/` y en volúmenes Docker. Haga copias de seguridad periódicas.
 - El paquete ocupa ~8 GB tras la instalación completa.
