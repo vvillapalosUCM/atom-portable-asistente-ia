@@ -50,14 +50,6 @@ Ejecute siempre `3_detener_atom.bat` para evitar corrupción de datos.
 
 ---
 
-## Credenciales por defecto
-
-| Campo | Valor |
-|---|---|
-| Usuario | `admin@atom.local` |
-| Contraseña | `Admin2024!` |
-
-> ⚠️ **Cambie la contraseña** tras el primer acceso: menú superior derecho → *Admin → Mi perfil*.
 
 ## Credenciales por defecto
 
