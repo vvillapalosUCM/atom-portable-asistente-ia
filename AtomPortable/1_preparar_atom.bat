@@ -18,6 +18,59 @@ SET D=%~dp0
 SET D=%D:~0,-1%
 cd /d "%D%"
 
+REM === Verificar que .env existe y tiene contrasenas configuradas ===
+if not exist ".env" (
+    echo ERROR: No se encontro el fichero .env
+    echo.
+    echo Debe copiar .env.example como .env y configurar las contrasenas
+    echo antes de ejecutar este script.
+    echo.
+    echo   copy .env.example .env
+    echo   notepad .env
+    echo.
+    pause & exit /b 1
+)
+
+REM Leer contrasenas desde .env
+SET ATOM_MYSQL_PASSWORD=
+SET MYSQL_ROOT_PASSWORD=
+SET ATOM_ADMIN_PASSWORD=
+SET ATOM_ADMIN_EMAIL=
+for /f "usebackq tokens=1,* delims==" %%a in (".env") do (
+    if "%%a"=="ATOM_MYSQL_PASSWORD" set "ATOM_MYSQL_PASSWORD=%%b"
+    if "%%a"=="MYSQL_ROOT_PASSWORD" set "MYSQL_ROOT_PASSWORD=%%b"
+    if "%%a"=="ATOM_ADMIN_PASSWORD" set "ATOM_ADMIN_PASSWORD=%%b"
+    if "%%a"=="ATOM_ADMIN_EMAIL" set "ATOM_ADMIN_EMAIL=%%b"
+)
+
+REM Verificar que las contrasenas se han cambiado
+echo %ATOM_MYSQL_PASSWORD% | findstr /C:"CAMBIAR" >nul
+if %errorlevel% equ 0 (
+    echo ERROR: Las contrasenas en .env no se han configurado.
+    echo Abra .env con un editor y cambie todos los valores que dicen CAMBIAR.
+    echo.
+    echo   notepad .env
+    echo.
+    pause & exit /b 1
+)
+
+echo %MYSQL_ROOT_PASSWORD% | findstr /C:"CAMBIAR" >nul
+if %errorlevel% equ 0 (
+    echo ERROR: MYSQL_ROOT_PASSWORD no se ha configurado en .env
+    pause & exit /b 1
+)
+
+echo %ATOM_ADMIN_PASSWORD% | findstr /C:"CAMBIAR" >nul
+if %errorlevel% equ 0 (
+    echo ERROR: ATOM_ADMIN_PASSWORD no se ha configurado en .env
+    pause & exit /b 1
+)
+
+if "%ATOM_ADMIN_EMAIL%"=="" set "ATOM_ADMIN_EMAIL=admin@atom.local"
+
+echo Contrasenas leidas correctamente desde .env
+echo.
+
 echo === FASE 1: DESCARGAR Y CONSTRUIR IMAGENES ===
 echo.
 
@@ -75,6 +128,7 @@ echo  Imagen Asistente IA lista.
 echo.
 
 echo [6/6] Guardando imagenes para uso offline...
+if not exist "images" mkdir images
 docker save -o "%D%\images\atom.tar"          atom-portable:2.10.0
 docker save -o "%D%\images\atom-nginx.tar"    atom-nginx:1.0
 docker save -o "%D%\images\asistente.tar"     asistente-ia:1.0
@@ -95,14 +149,14 @@ echo.
 echo Esperando a que MySQL este listo...
 :check_mysql
 timeout /t 8 /nobreak >nul
-docker inspect --format "{{.State.Health.Status}}" atomportable-percona-1 2>nul | findstr /C:"healthy" >nul
+docker inspect --format "{{.State.Health.Status}}" atom-percona 2>nul | findstr /C:"healthy" >nul
 if %errorlevel% neq 0 ( echo  MySQL iniciando... & goto check_mysql )
 echo  MySQL listo.
 
 echo Esperando a que Elasticsearch este listo...
 :check_es
 timeout /t 10 /nobreak >nul
-docker inspect --format "{{.State.Health.Status}}" atomportable-elasticsearch-1 2>nul | findstr /C:"healthy" >nul
+docker inspect --format "{{.State.Health.Status}}" atom-elasticsearch 2>nul | findstr /C:"healthy" >nul
 if %errorlevel% neq 0 ( echo  Elasticsearch iniciando... & goto check_es )
 echo  Elasticsearch listo.
 echo.
@@ -120,13 +174,13 @@ docker exec %ATOM_ID% php -d memory_limit=1G symfony tools:install ^
   --database-port=3306 ^
   --database-name=atom ^
   --database-user=atom ^
-  --database-password=AtomPass2024! ^
+  --database-password=%ATOM_MYSQL_PASSWORD% ^
   --search-host=elasticsearch ^
   --search-port=9200 ^
   --search-index=atom ^
-  --admin-email=admin@atom.local ^
+  --admin-email=%ATOM_ADMIN_EMAIL% ^
   --admin-username=admin ^
-  --admin-password=Admin2024!
+  --admin-password=%ATOM_ADMIN_PASSWORD%
 
 if %errorlevel% neq 0 (
     echo  Reintentando en 30 segundos...
@@ -137,13 +191,13 @@ if %errorlevel% neq 0 (
       --database-port=3306 ^
       --database-name=atom ^
       --database-user=atom ^
-      --database-password=AtomPass2024! ^
+      --database-password=%ATOM_MYSQL_PASSWORD% ^
       --search-host=elasticsearch ^
       --search-port=9200 ^
       --search-index=atom ^
-      --admin-email=admin@atom.local ^
+      --admin-email=%ATOM_ADMIN_EMAIL% ^
       --admin-username=admin ^
-      --admin-password=Admin2024!
+      --admin-password=%ATOM_ADMIN_PASSWORD%
 )
 
 docker compose down
@@ -152,8 +206,10 @@ echo =============================================================
 echo  PREPARACION COMPLETADA
 echo.
 echo  Ahora ejecute: 2_iniciar_atom.bat
-echo  AtoM:         http://localhost:8080  (admin / Admin2024!)
+echo  AtoM:         http://localhost:8080
 echo  Asistente IA: http://localhost:8081
+echo.
+echo  Usuario: admin  /  Contrasena: la que configuro en .env
 echo  CAMBIE LA CONTRASENA tras el primer acceso.
 echo =============================================================
 echo.

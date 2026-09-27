@@ -1,3 +1,22 @@
+# ============================================================================
+# AtoM Portable + Asistente IA — Despliegue Local Endurecido
+# ============================================================================
+# Diseñado para uso local en equipos Windows con Docker Desktop.
+# Orientado a formación y pruebas en el sector archivístico / GLAM.
+#
+# REQUISITO: Copiar .env.example a .env y configurar las contraseñas
+#            ANTES del primer arranque.
+#
+# Principios de seguridad aplicados:
+#   1. Servicios internos (MySQL, ES, memcached, gearmand) sin puertos al host
+#   2. AtoM y Asistente IA solo escuchan en 127.0.0.1
+#   3. Contraseñas en .env (no hardcodeadas en el compose)
+#   4. Restricciones de seguridad del kernel (no-new-privileges)
+#   5. Límites de recursos para prevenir denegación de servicio
+#   6. Red interna aislada para comunicación entre servicios
+#   7. Volúmenes nombrados (más seguros que bind mounts en Windows)
+# ============================================================================
+
 networks:
   atom_net:
     driver: bridge
@@ -9,8 +28,14 @@ volumes:
 
 services:
 
+  # --------------------------------------------------------------------------
+  # BASE DE DATOS — Percona (MySQL 8.0)
+  # --------------------------------------------------------------------------
+  # Sin puertos publicados. Solo accesible desde la red interna Docker.
+  # --------------------------------------------------------------------------
   percona:
     image: percona:8.0
+    container_name: atom-percona
     command: >
       mysqld
       --character-set-server=utf8mb4
@@ -18,15 +43,22 @@ services:
       --sql-mode=STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
       --max-connections=50
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-AtomRoot2024!}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - MYSQL_DATABASE=atom
       - MYSQL_USER=atom
-      - MYSQL_PASSWORD=${ATOM_MYSQL_PASSWORD:-AtomPass2024!}
+      - MYSQL_PASSWORD=${ATOM_MYSQL_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
       - atom_net
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -34,8 +66,16 @@ services:
       retries: 20
       start_period: 30s
 
+  # --------------------------------------------------------------------------
+  # BÚSQUEDA — Elasticsearch OSS 7.10.2
+  # --------------------------------------------------------------------------
+  # NOTA: ES-OSS 7.10.2 llegó a fin de vida y no recibe parches de seguridad.
+  # Es requisito de AtoM 2.10.0. Riesgo aceptado para uso local.
+  # Sin puertos publicados al host.
+  # --------------------------------------------------------------------------
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.10.2
+    container_name: atom-elasticsearch
     environment:
       - discovery.type=single-node
       - cluster.routing.allocation.disk.threshold_enabled=false
@@ -46,6 +86,13 @@ services:
     networks:
       - atom_net
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health | grep -qE '(green|yellow)'"]
       interval: 15s
@@ -53,21 +100,44 @@ services:
       retries: 20
       start_period: 30s
 
+  # --------------------------------------------------------------------------
+  # CACHÉ Y COLA DE TRABAJOS
+  # --------------------------------------------------------------------------
   memcached:
     image: memcached:1.6-alpine
+    container_name: atom-memcached
     command: -p 11211 -m 128 -u memcache
     networks:
       - atom_net
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
 
   gearmand:
     image: artefactual/gearmand:1.1.22
+    container_name: atom-gearmand
     networks:
       - atom_net
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
 
+  # --------------------------------------------------------------------------
+  # APLICACIÓN — AtoM 2.10.0
+  # --------------------------------------------------------------------------
   atom:
     image: atom-portable:2.10.0
+    container_name: atom-app
     env_file: .env
     volumes:
       - atom_source:/atom/src
@@ -84,9 +154,17 @@ services:
     networks:
       - atom_net
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.5"
 
   atom_worker:
     image: atom-portable:2.10.0
+    container_name: atom-worker
     command: worker
     env_file: .env
     volumes:
@@ -100,11 +178,24 @@ services:
     networks:
       - atom_net
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
 
+  # --------------------------------------------------------------------------
+  # SERVIDOR WEB — Nginx (AtoM)
+  # --------------------------------------------------------------------------
+  # Solo accesible desde localhost (127.0.0.1).
+  # --------------------------------------------------------------------------
   nginx:
     image: atom-nginx:1.0
+    container_name: atom-nginx
     ports:
-      - "127.0.0.1:8080:80"
+      - "127.0.0.1:${ATOM_PORT:-8080}:80"
     volumes:
       - atom_source:/atom/src:ro
     depends_on:
@@ -112,9 +203,34 @@ services:
     networks:
       - atom_net
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
 
+  # --------------------------------------------------------------------------
+  # ASISTENTE IA — Interfaz web estática
+  # --------------------------------------------------------------------------
+  # Llama a Ollama en el host. Solo acepta localhost/127.0.0.1 como destino.
+  # --------------------------------------------------------------------------
   asistente-ia:
     image: asistente-ia:1.0
+    container_name: atom-asistente-ia
     ports:
-      - "127.0.0.1:8081:80"
+      - "127.0.0.1:${ASISTENTE_PORT:-8081}:80"
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16M
+      - /var/cache/nginx:size=32M
+      - /var/run:size=1M
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"

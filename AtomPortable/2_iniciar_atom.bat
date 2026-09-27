@@ -16,6 +16,12 @@ SET D=%~dp0
 SET D=%D:~0,-1%
 cd /d "%D%"
 
+if not exist ".env" (
+    echo ERROR: No se encontro el fichero .env
+    echo Copie .env.example como .env y configure las contrasenas.
+    pause & exit /b 1
+)
+
 docker image inspect atom-portable:2.10.0 >nul 2>&1
 if %errorlevel% neq 0 (
     if not exist "images\atom.tar" (
@@ -41,9 +47,10 @@ echo.
 echo =============================================================
 echo  Servicios iniciados
 echo.
-echo  AtoM:         http://localhost:8080  (admin / Admin2024!)
+echo  AtoM:         http://localhost:8080
 echo  Asistente IA: http://localhost:8081
 echo.
+echo  Credenciales: las que configuro en .env
 echo  AtoM tarda 1-2 min en arrancar completamente.
 echo  Para detener: 3_detener_atom.bat
 echo =============================================================
